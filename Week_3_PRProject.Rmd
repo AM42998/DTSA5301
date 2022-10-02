@@ -1,0 +1,132 @@
+---
+title: "Week3_PRProject"
+author: "ALM"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The following libraries will be needed to execute the data evaluation:  
+
+```{r tidy }
+library(tidyverse)
+```  
+```{r lubri }
+library(lubridate)
+```
+
+For this project used the dataset provided but the city of New York describing shooting incidents including date, time, location, and information on the perpetrator and victim which can be found at this URL:  
+
+https://catalog.data.gov/dataset/nypd-shooting-incident-data-year-to-date
+
+# 1.Importing  
+First step is importing the data and creating file and dataset name.  
+```{r import }
+url_in <-"https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+```
+```{r filename }
+file_names <- c("NYPD_Shooting_Incident_Data_Historic_.csv")
+```     
+```{r dataname }
+shooting_data <- read_csv(url_in)
+```
+
+# 2.Tidy and Transform    
+The next step is evaluating the data and cleaning it to make it easier to analyze.I started by removing data that I knew I would not be using in my evaluation such as coordinates.    
+
+```{r remove_data }
+shooting_data <- shooting_data %>% select(-c(JURISDICTION_CODE, X_COORD_CD, Y_COORD_CD, 
+Latitude, Longitude, Lon_Lat))
+```    
+
+Next I transformed the date data from character to date format.  
+
+```{r date_transform }
+shooting_data <- shooting_data %>% mutate(OCCUR_DATE = mdy(OCCUR_DATE))
+```
+
+Next I looked at the data contained in each column for missing data. If the column contained a significant amount of missing data it would not be ideal information to use in my evaluation.For this I used the following code that to count the amount of missing data for each column:  
+
+sum(is.na(shooting_data$*columnname*))  
+
+OCCUR_DATE:0  
+BORO:0  
+PRECINCT:0  
+LOCATION_DESC: 14977  
+STATISTICAL_MURDER_FLAG:0  
+PERP_AGE_GROUP:9344  
+PERP_SEX:9310  
+PERP_RACE:9310  
+VIC_AGE_GROUP:0  
+VIC_SEX:0  
+VIC_RACE:0  
+
+Based on this information I also decided to exclude the location description and perpetrator information as these included a significant amount of missing data.
+
+```{r remove_missing }
+shooting_data <- shooting_data %>% select(-c(LOCATION_DESC, PERP_AGE_GROUP, PERP_SEX, PERP_RACE))
+```  
+
+The following is a summary of the dataframe after these alterations:  
+```{r data_summary } 
+summary(shooting_data)
+```
+# 3.Visualization
+For my first visualization I decided to compare shooting count based on different precincts.  
+```{r precinct}
+by_precinct <- shooting_data %>% group_by(PRECINCT) %>% summarise(Unique_Shooting_Count = 
+length(unique(INCIDENT_KEY)))
+```
+```{r precinct_hist}
+by_precinct %>% ggplot(aes(x = PRECINCT, y =
+Unique_Shooting_Count)) + geom_point(aes(color =
+Unique_Shooting_Count)) + labs(title =
+"Shootings by Precinct", x = "Precinct", y ="Shootings")
+```
+From this plot you can see there is a significant variation in the number of shootings. I decided to compare the shootings by month of all precincts and those with the highest and lowest shooting counts to look for trends. 
+
+First I created another data set with just the data for all precincts by month and graphed it.
+
+Fist I created a plot with the full shooting data grouped by month:
+```{r date_data1}
+by_date1 <- shooting_data %>% group_by(month=
+floor_date(OCCUR_DATE, "month")) %>% summarise(unique_shooting_count =
+length(unique(INCIDENT_KEY)))
+```
+```{r date_graph1}
+ggplot(by_date1, aes(x = month, y =
+unique_shooting_count)) + geom_col(color = "blue") + labs(title =
+"Shootings by Month All Precincts", x = "Month", y = "Shootings")
+```
+Next I looked at the same data for the precinct with the highest shootings which was precinct 75:
+
+```{r 75_data}
+precinct_75 <- shooting_data %>% filter(PRECINCT == 75)
+```
+```{r date_data2}
+by_date2 <- precinct_75 %>% group_by(month=floor_date(OCCUR_DATE,"month")) %>% summarise(unique_shooting_count =
+length(unique(INCIDENT_KEY)))
+```
+```{r date_graph2}
+ggplot(by_date2, aes(x = month, y =
+unique_shooting_count)) + geom_col(color = "purple") + labs(title = "Shootings by Month Precinct 75", x = "Month", y = "Shootings")
+```
+Last I looked at the precinct with the lowest total shootings which is Precinct 22:  
+```{r 22_data}
+precinct_22 <- shooting_data %>% filter(PRECINCT == 22)
+```
+```{r date_data3}
+by_date3 <- precinct_22 %>% group_by(month=
+floor_date(OCCUR_DATE, "month")) %>% summarise(unique_shooting_count =
+length(unique(INCIDENT_KEY)))
+```
+```{r date_graph3}
+ggplot(by_date3, aes(x = month, y = unique_shooting_count)) + geom_col(color =
+"black") + labs(title = "Shootings by Month Precinct 22", x =
+"Month", y = "Shootings")
+```
+
+# 4.Conclusion and Bias Indentification
+Looking at the data and graphs there are a few observations I would like to mention. First these was an unexpected amount of variation between precincts. I knew there would be variation but did not expect an over 1000% difference between the highest and lowest numbers. There is definitely bias when comparing the precinct data as we are not able to take into account population per precinct and population changes over time along with other demographics which can have a big impact on shootings and give us much more insight into why there is so much variation. There is also a bias by looking at shootings without being able to look into the circumstances surrounding the shootings. The nature of the crime would be important information to be able make appropriate comparisons. Looking at the total and precinct 75 shootings by month charts they are very similar. There does seem to be an overall cyclical nature to shootings over time.There is not enough information to determine possible causes, there could be such changes as an increased police presence after a shooting or other changes in the neighborhood leading to less violence for a period of time. Additional data collection could aid in determining potential causes. Also there was generally a decrease in shootings in the late 2010's and then a large spike in early 2020 which is most likely related to the outbreak of Covid-19 in New York, but again additional data is warranted. 
